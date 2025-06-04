@@ -66,9 +66,41 @@ async function scrapeGallery(tabId, folder, cookie, fileTypes) {
   } else {
     urls = await browser.tabs.executeScript(tabId, { code });
   }
+
   if (!urls || !urls[0] || urls[0].length === 0) {
-    browser.runtime.sendMessage({action: 'error', message: 'No downloadable links found.'});
-    return;
+    // Fallback: get art page links and extract asset URLs
+    const pageCode = `Array.from(document.querySelectorAll('a')).map(a=>a.href).filter(h=>/\/art\/view\//.test(h))`;
+    let pageUrls;
+    if (browser.scripting && browser.scripting.executeScript) {
+      const [{ result }] = await browser.scripting.executeScript({
+        target: { tabId },
+        func: () => Array.from(document.querySelectorAll('a')).map(a => a.href).filter(h => /\/art\/view\//.test(h))
+      });
+      pageUrls = [result];
+    } else {
+      pageUrls = await browser.tabs.executeScript(tabId, { code: pageCode });
+    }
+    if (!pageUrls || !pageUrls[0] || pageUrls[0].length === 0) {
+      browser.runtime.sendMessage({action: 'error', message: 'No downloadable links found.'});
+      return;
+    }
+    const assetUrls = [];
+    for (const link of pageUrls[0]) {
+      try {
+        const html = await fetchWithCookie(link, cookie).then(r => r.text());
+        const m = html.match(/<meta[^>]+property="og:(?:image|video)"[^>]+content="([^"]+)"/i);
+        if (m && extensions.some(ext => m[1].toLowerCase().includes('.' + ext))) {
+          assetUrls.push(m[1]);
+        }
+      } catch(e) {
+        // ignore
+      }
+    }
+    if (assetUrls.length === 0) {
+      browser.runtime.sendMessage({action: 'error', message: 'No downloadable links found.'});
+      return;
+    }
+    urls = [assetUrls];
   }
   const seen = new Set();
   let downloaded = 0;
@@ -94,7 +126,16 @@ if (typeof browser !== 'undefined' &&
   browser.runtime.onMessage.addListener((message, sender) => {
     if (message.action === 'scrape') {
       browser.storage.local.get(['cookie','fileTypes']).then(result => {
-        scrapeGallery(sender.tab.id, message.folder, result.cookie, result.fileTypes || {});
+        const tabPromise = sender.tab ?
+          Promise.resolve(sender.tab) :
+          browser.tabs.query({active: true, currentWindow: true}).then(tabs => tabs[0]);
+        tabPromise.then(tab => {
+          if (tab) {
+            scrapeGallery(tab.id, message.folder, result.cookie, result.fileTypes || {});
+          } else {
+            browser.runtime.sendMessage({action: 'error', message: 'No active tab found.'});
+          }
+        });
       });
     }
   });

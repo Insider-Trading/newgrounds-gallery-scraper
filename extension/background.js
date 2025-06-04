@@ -34,6 +34,7 @@ async function downloadFile(url, filename, cookie) {
 async function scrapeGallery(tabId, folder, cookie, fileTypes) {
   const tab = await browser.tabs.get(tabId);
   if (!tab || !tab.url.includes('newgrounds.com')) {
+    browser.runtime.sendMessage({action: 'error', message: 'Not on a Newgrounds gallery page.'});
     return;
   }
   const extensions = [];
@@ -48,16 +49,24 @@ async function scrapeGallery(tabId, folder, cookie, fileTypes) {
   }
   const code = `Array.from(document.querySelectorAll('a')).map(a=>a.href).filter(h=>${JSON.stringify(extensions)}.some(ext=>h.toLowerCase().endsWith('.'+ext)))`;
   const urls = await browser.tabs.executeScript(tabId, { code });
-  if (!urls || !urls[0]) return;
+  if (!urls || !urls[0] || urls[0].length === 0) {
+    browser.runtime.sendMessage({action: 'error', message: 'No downloadable links found.'});
+    return;
+  }
   const seen = new Set();
+  let downloaded = 0;
+  const total = urls[0].length;
   for (const url of urls[0]) {
     if (seen.has(url)) continue;
     seen.add(url);
     const parts = url.split('/');
     const filename = folder + '/' + parts[parts.length - 1];
     await downloadFile(url, filename, cookie);
+    downloaded++;
+    browser.runtime.sendMessage({action: 'progress', completed: downloaded, total});
     await delay(rateLimitDelay);
   }
+  browser.runtime.sendMessage({action: 'finished', total: downloaded});
 }
 
 

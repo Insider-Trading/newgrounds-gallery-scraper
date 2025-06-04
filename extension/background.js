@@ -1,3 +1,8 @@
+// Use the browser namespace if available, otherwise fall back to chrome
+if (typeof browser === 'undefined' && typeof chrome !== 'undefined') {
+  var browser = chrome;
+}
+
 let rateLimitDelay = 1000; // start with 1 second between requests
 
 function delay(ms) {
@@ -48,7 +53,19 @@ async function scrapeGallery(tabId, folder, cookie, fileTypes) {
     extensions.push('mp4','webm');
   }
   const code = `Array.from(document.querySelectorAll('a')).map(a=>a.href).filter(h=>${JSON.stringify(extensions)}.some(ext=>h.toLowerCase().endsWith('.'+ext)))`;
-  const urls = await browser.tabs.executeScript(tabId, { code });
+  let urls;
+  if (browser.scripting && browser.scripting.executeScript) {
+    const [{ result }] = await browser.scripting.executeScript({
+      target: { tabId },
+      func: (exts) => Array.from(document.querySelectorAll('a'))
+        .map(a => a.href)
+        .filter(h => exts.some(ext => h.toLowerCase().endsWith('.' + ext))),
+      args: [extensions]
+    });
+    urls = [result];
+  } else {
+    urls = await browser.tabs.executeScript(tabId, { code });
+  }
   if (!urls || !urls[0] || urls[0].length === 0) {
     browser.runtime.sendMessage({action: 'error', message: 'No downloadable links found.'});
     return;

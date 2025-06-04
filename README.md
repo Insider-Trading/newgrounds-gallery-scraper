@@ -8,6 +8,7 @@ A browser extension for downloading full resolution images from a user's Newgrou
 - Allows the user to paste an exported login cookie in JSON format to access private galleries.
 - Dynamically adapts to Newgrounds rate limits when scraping.
 - Lets the user specify a download subfolder via the popup UI.
+- Displays progress for each downloaded file in the popup.
 
 ## Usage
 
@@ -17,3 +18,4 @@ A browser extension for downloading full resolution images from a user's Newgrou
 4. Enter the desired output folder name and start the scrape.
 
 Images will be saved using the browser's downloads directory in the specified subfolder.
+The popup will show how many files have been downloaded as the process runs.

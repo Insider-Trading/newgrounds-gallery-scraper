@@ -60,10 +60,25 @@ async function scrapeGallery(tabId, folder, cookie, fileTypes) {
   }
 }
 
-browser.runtime.onMessage.addListener((message, sender) => {
-  if (message.action === 'scrape') {
-    browser.storage.local.get(['cookie','fileTypes']).then(result => {
-      scrapeGallery(sender.tab.id, message.folder, result.cookie, result.fileTypes || {});
-    });
-  }
-});
+
+if (typeof browser !== 'undefined' &&
+    browser.runtime &&
+    browser.runtime.onMessage &&
+    typeof browser.runtime.onMessage.addListener === 'function') {
+  browser.runtime.onMessage.addListener((message, sender) => {
+    if (message.action === 'scrape') {
+      browser.storage.local.get(['cookie','fileTypes']).then(result => {
+        scrapeGallery(sender.tab.id, message.folder, result.cookie, result.fileTypes || {});
+      });
+    }
+  });
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    delay,
+    fetchWithCookie,
+    downloadFile,
+    scrapeGallery
+  };
+}

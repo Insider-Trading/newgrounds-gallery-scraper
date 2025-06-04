@@ -1,3 +1,7 @@
+if (typeof browser === 'undefined' && typeof chrome !== 'undefined') {
+  var browser = chrome;
+}
+
 function $(id) { return document.getElementById(id); }
 
 document.addEventListener('DOMContentLoaded', () => {

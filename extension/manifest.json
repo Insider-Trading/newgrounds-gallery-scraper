@@ -1,0 +1,24 @@
+{
+  "manifest_version": 2,
+  "name": "Newgrounds Gallery Scraper",
+  "version": "0.1",
+  "description": "Download images from a user's Newgrounds gallery.",
+  "permissions": [
+    "activeTab",
+    "downloads",
+    "storage",
+    "https://*.newgrounds.com/*"
+  ],
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_title": "Scrape Gallery"
+  },
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": false
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  }
+}

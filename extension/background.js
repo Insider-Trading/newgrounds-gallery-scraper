@@ -94,7 +94,16 @@ if (typeof browser !== 'undefined' &&
   browser.runtime.onMessage.addListener((message, sender) => {
     if (message.action === 'scrape') {
       browser.storage.local.get(['cookie','fileTypes']).then(result => {
-        scrapeGallery(sender.tab.id, message.folder, result.cookie, result.fileTypes || {});
+        const tabPromise = sender.tab ?
+          Promise.resolve(sender.tab) :
+          browser.tabs.query({active: true, currentWindow: true}).then(tabs => tabs[0]);
+        tabPromise.then(tab => {
+          if (tab) {
+            scrapeGallery(tab.id, message.folder, result.cookie, result.fileTypes || {});
+          } else {
+            browser.runtime.sendMessage({action: 'error', message: 'No active tab found.'});
+          }
+        });
       });
     }
   });

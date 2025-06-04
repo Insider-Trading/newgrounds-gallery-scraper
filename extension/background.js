@@ -20,7 +20,7 @@ async function fetchWithCookie(url, cookie) {
   }
 }
 
-async function downloadImage(url, filename, cookie) {
+async function downloadFile(url, filename, cookie) {
   const blob = await fetchWithCookie(url, cookie).then(r => r.blob());
   const objectUrl = URL.createObjectURL(blob);
   await browser.downloads.download({
@@ -31,28 +31,39 @@ async function downloadImage(url, filename, cookie) {
   URL.revokeObjectURL(objectUrl);
 }
 
-async function scrapeGallery(tabId, folder, cookie) {
+async function scrapeGallery(tabId, folder, cookie, fileTypes) {
   const tab = await browser.tabs.get(tabId);
   if (!tab || !tab.url.includes('newgrounds.com')) {
     return;
   }
-  // Request DOM info from content script
-  const urls = await browser.tabs.executeScript(tabId, {
-    code: `Array.from(document.querySelectorAll('a[href$=".png"],a[href$=".jpg"],a[href$=".gif"]')).map(a => a.href)`
-  });
+  const extensions = [];
+  if (fileTypes && fileTypes.images !== false) {
+    extensions.push('png','jpg','jpeg');
+  }
+  if (fileTypes && fileTypes.gifs) {
+    extensions.push('gif');
+  }
+  if (fileTypes && fileTypes.videos) {
+    extensions.push('mp4','webm');
+  }
+  const code = `Array.from(document.querySelectorAll('a')).map(a=>a.href).filter(h=>${JSON.stringify(extensions)}.some(ext=>h.toLowerCase().endsWith('.'+ext)))`;
+  const urls = await browser.tabs.executeScript(tabId, { code });
   if (!urls || !urls[0]) return;
+  const seen = new Set();
   for (const url of urls[0]) {
+    if (seen.has(url)) continue;
+    seen.add(url);
     const parts = url.split('/');
     const filename = folder + '/' + parts[parts.length - 1];
-    await downloadImage(url, filename, cookie);
+    await downloadFile(url, filename, cookie);
     await delay(rateLimitDelay);
   }
 }
 
 browser.runtime.onMessage.addListener((message, sender) => {
   if (message.action === 'scrape') {
-    browser.storage.local.get(['cookie']).then(result => {
-      scrapeGallery(sender.tab.id, message.folder, result.cookie);
+    browser.storage.local.get(['cookie','fileTypes']).then(result => {
+      scrapeGallery(sender.tab.id, message.folder, result.cookie, result.fileTypes || {});
     });
   }
 });

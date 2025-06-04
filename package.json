@@ -1,0 +1,16 @@
+{
+  "name": "newgrounds-gallery-scraper",
+  "version": "1.0.0",
+  "description": "A browser extension for downloading full resolution images from a user's Newgrounds gallery.",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

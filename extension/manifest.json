@@ -7,10 +7,12 @@
     "activeTab",
     "downloads",
     "storage",
-    "scripting"
+    "scripting",
+    "cookies"
   ],
   "host_permissions": [
-    "https://*.newgrounds.com/*"
+    "https://*.newgrounds.com/*",
+    "https://*.ngfiles.com/*"
   ],
   "action": {
     "default_popup": "popup.html",

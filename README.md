@@ -7,7 +7,7 @@ A browser extension for downloading full resolution images from a user's Newgrou
 - Works in Firefox and other browsers supporting the WebExtension API.
 - Allows the user to paste an exported login cookie in JSON format to access private galleries. The cookies are stored via the browser API so authenticated requests work correctly.
 - Dynamically adapts to Newgrounds rate limits when scraping.
-- Modifies request and response headers so images can be downloaded without CORS errors.
+- Uses cross-origin XMLHttpRequest so images can be downloaded without CORS errors.
 - Lets the user specify a download subfolder via the popup UI.
 - Displays progress for each downloaded file in the popup.
 

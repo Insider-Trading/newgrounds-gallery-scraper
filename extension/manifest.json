@@ -8,9 +8,7 @@
     "downloads",
     "storage",
     "scripting",
-    "cookies",
-    "webRequest",
-    "webRequestBlocking"
+    "cookies"
   ],
   "host_permissions": [
     "https://*.newgrounds.com/*",

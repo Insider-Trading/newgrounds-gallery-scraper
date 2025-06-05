@@ -3,52 +3,8 @@ if (typeof browser === 'undefined' && typeof chrome !== 'undefined') {
   var browser = chrome;
 }
 
-// Ensure Newgrounds accepts our requests by spoofing the Origin header
-if (typeof browser !== 'undefined' &&
-    browser.webRequest && browser.webRequest.onBeforeSendHeaders) {
-  browser.webRequest.onBeforeSendHeaders.addListener(
-    details => {
-      const headers = details.requestHeaders || [];
-      let found = false;
-      for (const h of headers) {
-        if (h.name.toLowerCase() === 'origin') {
-          h.value = 'https://www.newgrounds.com';
-          found = true;
-          break;
-        }
-      }
-      if (!found) {
-        headers.push({ name: 'Origin', value: 'https://www.newgrounds.com' });
-      }
-      return { requestHeaders: headers };
-    },
-    { urls: ['https://*.newgrounds.com/*', 'https://*.ngfiles.com/*'] },
-    ['blocking', 'requestHeaders', 'extraHeaders']
-  );
-
-  browser.webRequest.onHeadersReceived.addListener(
-    details => {
-      const headers = details.responseHeaders || [];
-      let found = false;
-      for (const h of headers) {
-        const name = h.name.toLowerCase();
-        if (name === 'access-control-allow-origin') {
-          h.value = '*';
-          found = true;
-        }
-        if (name === 'access-control-allow-credentials') {
-          h.value = 'true';
-        }
-      }
-      if (!found) {
-        headers.push({ name: 'Access-Control-Allow-Origin', value: '*' });
-      }
-      return { responseHeaders: headers };
-    },
-    { urls: ['https://*.newgrounds.com/*', 'https://*.ngfiles.com/*'] },
-    ['blocking', 'responseHeaders', 'extraHeaders']
-  );
-}
+// Fetching media files uses XMLHttpRequest with host permissions so
+// CORS does not block downloads. No webRequest permissions are required.
 
 let rateLimitDelay = 1000; // start with 1 second between requests
 

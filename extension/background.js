@@ -3,30 +3,93 @@ if (typeof browser === 'undefined' && typeof chrome !== 'undefined') {
   var browser = chrome;
 }
 
+// Ensure Newgrounds accepts our requests by spoofing the Origin header
+if (typeof browser !== 'undefined' &&
+    browser.webRequest && browser.webRequest.onBeforeSendHeaders) {
+  browser.webRequest.onBeforeSendHeaders.addListener(
+    details => {
+      const headers = details.requestHeaders || [];
+      let found = false;
+      for (const h of headers) {
+        if (h.name.toLowerCase() === 'origin') {
+          h.value = 'https://www.newgrounds.com';
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        headers.push({ name: 'Origin', value: 'https://www.newgrounds.com' });
+      }
+      return { requestHeaders: headers };
+    },
+    { urls: ['https://*.newgrounds.com/*', 'https://*.ngfiles.com/*'] },
+    ['blocking', 'requestHeaders', 'extraHeaders']
+  );
+
+  browser.webRequest.onHeadersReceived.addListener(
+    details => {
+      const headers = details.responseHeaders || [];
+      let found = false;
+      for (const h of headers) {
+        const name = h.name.toLowerCase();
+        if (name === 'access-control-allow-origin') {
+          h.value = '*';
+          found = true;
+        }
+        if (name === 'access-control-allow-credentials') {
+          h.value = 'true';
+        }
+      }
+      if (!found) {
+        headers.push({ name: 'Access-Control-Allow-Origin', value: '*' });
+      }
+      return { responseHeaders: headers };
+    },
+    { urls: ['https://*.newgrounds.com/*', 'https://*.ngfiles.com/*'] },
+    ['blocking', 'responseHeaders', 'extraHeaders']
+  );
+}
+
 let rateLimitDelay = 1000; // start with 1 second between requests
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function fetchWithCookie(url, cookie) {
-  const headers = {};
-  if (cookie) {
-    headers['Cookie'] = cookie;
+async function fetchWithCookie(url) {
+  if (typeof XMLHttpRequest !== 'undefined') {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      xhr.responseType = 'blob';
+      xhr.withCredentials = true;
+      xhr.onload = async () => {
+        if (xhr.status === 429) {
+          rateLimitDelay = Math.min(rateLimitDelay + 500, 5000);
+          await delay(rateLimitDelay);
+          resolve(fetchWithCookie(url));
+          return;
+        }
+        rateLimitDelay = Math.max(1000, rateLimitDelay - 100);
+        resolve(new Response(xhr.response, { status: xhr.status, statusText: xhr.statusText }));
+      };
+      xhr.onerror = () => reject(new TypeError('Network request failed'));
+      xhr.send();
+    });
   }
-  const response = await fetch(url, { credentials: 'include', headers });
+  const response = await fetch(url, { credentials: 'include' });
   if (response.status === 429) { // rate limited
     rateLimitDelay = Math.min(rateLimitDelay + 500, 5000);
     await delay(rateLimitDelay);
-    return fetchWithCookie(url, cookie);
+    return fetchWithCookie(url);
   } else {
     rateLimitDelay = Math.max(1000, rateLimitDelay - 100);
     return response;
   }
 }
 
-async function downloadFile(url, filename, cookie) {
-  const blob = await fetchWithCookie(url, cookie).then(r => r.blob());
+async function downloadFile(url, filename) {
+  const blob = await fetchWithCookie(url).then(r => r.blob());
   const objectUrl = URL.createObjectURL(blob);
   await browser.downloads.download({
     url: objectUrl,
@@ -87,7 +150,7 @@ async function scrapeGallery(tabId, folder, cookie, fileTypes) {
     const assetUrls = [];
     for (const link of pageUrls[0]) {
       try {
-        const html = await fetchWithCookie(link, cookie).then(r => r.text());
+        const html = await fetchWithCookie(link).then(r => r.text());
         const m = html.match(/<meta[^>]+property="og:(?:image|video)"[^>]+content="([^"]+)"/i);
         if (m && extensions.some(ext => m[1].toLowerCase().includes('.' + ext))) {
           assetUrls.push(m[1]);
@@ -110,7 +173,7 @@ async function scrapeGallery(tabId, folder, cookie, fileTypes) {
     seen.add(url);
     const parts = url.split('/');
     const filename = folder + '/' + parts[parts.length - 1];
-    await downloadFile(url, filename, cookie);
+    await downloadFile(url, filename);
     downloaded++;
     browser.runtime.sendMessage({action: 'progress', completed: downloaded, total});
     await delay(rateLimitDelay);

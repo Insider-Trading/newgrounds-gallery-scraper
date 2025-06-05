@@ -17,15 +17,34 @@ document.addEventListener('DOMContentLoaded', () => {
     typeVideos.checked = !!types.videos;
   });
 
-  $('save').addEventListener('click', () => {
-    const cookie = cookieArea.value.trim();
+  $('save').addEventListener('click', async () => {
+    const cookieText = cookieArea.value.trim();
     const fileTypes = {
       images: typeImages.checked,
       gifs: typeGifs.checked,
       videos: typeVideos.checked
     };
-    browser.storage.local.set({ cookie, fileTypes }).then(() => {
-      $('msg').textContent = 'Saved.';
-    });
+    await browser.storage.local.set({ cookie: cookieText, fileTypes });
+    try {
+      const cookies = JSON.parse(cookieText);
+      if (Array.isArray(cookies)) {
+        for (const c of cookies) {
+          if (!c.name || !c.value || !c.domain) continue;
+          const urlDomain = c.domain.replace(/^\./, '');
+          const url = `https://${urlDomain}${c.path || '/'}`;
+          await browser.cookies.set({
+            url,
+            name: c.name,
+            value: c.value,
+            domain: c.domain,
+            path: c.path || '/',
+            expirationDate: c.expirationDate
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Invalid cookie JSON', e);
+    }
+    $('msg').textContent = 'Saved.';
   });
 });
